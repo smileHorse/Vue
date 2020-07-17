@@ -9,7 +9,8 @@ export default {
    */
   openDatabase() {
     if (this.db == null) {
-      this.db = openDatabase("myShares", '1.0', 'myShares', 2 * 1024 * 1024);
+      this.db = openDatabase("myShares", '1.0', 'myShares',
+        2 * 1024 * 1024);
     }
   },
 
@@ -17,17 +18,9 @@ export default {
    * 创建必要的数据库表
    */
   createTables() {
-    this.db.transaction(function (tx) {
-      tx.executeSql('CREATE TABLE IF NOT EXISTS Shares(id TEXT, name TEXT)', [], function (transaction, result) {
-      }, function (transaction, error) {
-        console.log('createTables Shares happen error: ', error);
-      });
-      tx.executeSql('CREATE TABLE IF NOT EXISTS Business(id TEXT, datetime TEXT, type INTEGER, ' +
-        'shares TEXT, price DOUBLE, count INTEGER, taxes DOUBLE)', [], function (transaction, result) {
-      }, function (transaction, error) {
-        console.log('createTables Transaction happen error: ', error);
-      });
-    });
+    this.executeSql('CREATE TABLE IF NOT EXISTS Shares(id TEXT, name TEXT)', []);
+    this.executeSql('CREATE TABLE IF NOT EXISTS Business(id TEXT, datetime TEXT, type INTEGER, ' +
+      'shares TEXT, price DOUBLE, count INTEGER, taxes DOUBLE)', []);
   },
 
   /**
@@ -46,60 +39,56 @@ export default {
    * 获取股票信息
    */
   getShares() {
-    this.initDatabase();
+    return this.executeSql('SELECT id, name FROM Shares', []);
+  },
 
-    let sharesDatas = [];
-    this.db.transaction(function (tx) {
-      tx.executeSql('SELECT id, name FROM Shares', [], function (transaction, resultSet) {
-        for (let i = 0; i < resultSet.rows.length; i++) {
-          console.log('getShares', resultSet.rows[i]);
-          sharesDatas.push({id: resultSet.rows.item(i).id, name: resultSet.rows.item(i).name});
-        }
-
-        sharesDatas.push({id: '', name: ''});
-      }, function (transaction, error) {
-        console.log('getShares happen error: ', error);
-      });
-    });
-
-    return sharesDatas;
+  /**
+   * 根据id获取股票信息
+   */
+  getSharesById(id) {
+    return this.executeSql('SELECT id, name FROM Shares WHERE id = ?', [id]);
   },
 
   /**
    * 删除股票信息
    */
   deleteShares(id) {
-    this.db.transaction(function (tx) {
-      tx.executeSql('DELETE FROM Shares where id = ?', [id], function (transaction, resultSet) {
-        return true;
-      }, function (transaction, error) {
-        console.log('deleteShares happen error: ', error);
-        return false;
-      });
-    });
+    return this.executeSql('DELETE FROM Shares where id = ?', [id]);
   },
 
   /**
    * 插入股票信息
    */
   insertShares(id, name) {
-    this.db.transaction(function (tx) {
-      tx.executeSql('INSERT INTO Shares VALUES(?,?)', [id, name], function (transaction, resultSet) {
-      }, function (transaction, error) {
-        console.log('insertShares happen error: ', error);
-      });
-    });
+    return this.executeSql('INSERT INTO Shares VALUES(?,?)', [id, name]);
   },
 
   /**
    * 修改股票信息
    */
   updateShares(id, name) {
-    this.db.transaction(function (tx) {
-      tx.executeSql('UPDATE Shares SET name = ? WHERE id = ?', [name, id], function (transaction, resultSet) {
-      }, function (transaction, error) {
-        console.log('updateShares happen error: ', error);
+    return this.executeSql('UPDATE Shares SET name = ? WHERE id = ?', [name, id]);
+  },
+
+  /**
+   * sql执行函数，返回一个Promise值
+   * @param sql
+   * @param params
+   * @returns {Promise<any>}
+   */
+  executeSql(sql, params) {
+    this.initDatabase();
+
+    const promise = new Promise((resolve, reject) => {
+      this.db.transaction(function (tx) {
+        tx.executeSql(sql, params, function (transaction, resultSet) {
+          resolve(resultSet);
+        }, function (transaction, error) {
+          console.log('executeSql ' + sql + ' happend error', error);
+          reject(error);
+        });
       });
     });
+    return promise;
   }
 }
